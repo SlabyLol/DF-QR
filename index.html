@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DF-QR Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root { --primary: #6366f1; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background-color: var(--card); padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 100%; max-width: 400px; text-align: center; }
+        h1 { margin-bottom: 1.5rem; color: var(--primary); }
+        select, input { width: 100%; padding: 12px; margin-bottom: 1rem; border-radius: 0.5rem; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; }
+        .row { display: flex; gap: 10px; }
+        button { width: 100%; padding: 12px; background-color: var(--primary); color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { background-color: #4f46e5; }
+        #qrcode { margin-top: 2rem; display: flex; justify-content: center; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>DF-QR</h1>
+    <select id="type" onchange="toggleInput()">
+        <option value="link">Link</option>
+        <option value="text">Text</option>
+        <option value="video">Video (Link/Upload)</option>
+        <option value="image">Image (Link/Upload)</option>
+    </select>
+    
+    <div id="input-container">
+        <input type="text" id="content" placeholder="Enter content...">
+    </div>
+
+    <label style="display:block; margin-bottom: 5px;">QR Color:</label>
+    <input type="color" id="colorPicker" value="#ffffff" style="height: 40px; cursor: pointer;">
+
+    <button onclick="generateQR()">Generate QR</button>
+    <div id="qrcode"></div>
+</div>
+
+<script>
+    function toggleInput() {
+        const type = document.getElementById('type').value;
+        const container = document.getElementById('input-container');
+        if (type === 'video' || type === 'image') {
+            container.innerHTML = `
+                <select id="mode" onchange="updateMode()">
+                    <option value="link">Paste Link</option>
+                    <option value="file">Upload File</option>
+                </select>
+                <input type="text" id="content" placeholder="Paste URL...">
+            `;
+        } else {
+            container.innerHTML = `<input type="text" id="content" placeholder="Enter content...">`;
+        }
+    }
+
+    function updateMode() {
+        const mode = document.getElementById('mode').value;
+        const container = document.getElementById('input-container');
+        if (mode === 'file') {
+            container.querySelector('input').outerHTML = `<input type="file" id="fileInput">`;
+        } else {
+            container.querySelector('input').outerHTML = `<input type="text" id="content" placeholder="Paste URL...">`;
+        }
+    }
+
+    function generateQR() {
+        const qrcodeDiv = document.getElementById('qrcode');
+        const color = document.getElementById('colorPicker').value;
+        let data = "";
+
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput && fileInput.files.length > 0) {
+            data = URL.createObjectURL(fileInput.files[0]);
+        } else {
+            data = document.getElementById('content').value;
+        }
+
+        qrcodeDiv.innerHTML = "";
+        if (data) {
+            new QRCode(qrcodeDiv, {
+                text: data,
+                width: 256,
+                height: 256,
+                colorDark : color,
+                colorLight : "#0f172a",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+        } else {
+            alert("Please enter content or select a file.");
+        }
+    }
+</script>
+
+</body>
+</html>
