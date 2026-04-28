@@ -5,16 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DF-QR Generator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { --primary: #6366f1; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
         .container { background-color: var(--card); padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 100%; max-width: 400px; text-align: center; }
         h1 { margin-bottom: 1.5rem; color: var(--primary); }
         select, input { width: 100%; padding: 12px; margin-bottom: 1rem; border-radius: 0.5rem; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; }
-        .row { display: flex; gap: 10px; }
-        button { width: 100%; padding: 12px; background-color: var(--primary); color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        button:hover { background-color: #4f46e5; }
-        #qrcode { margin-top: 2rem; display: flex; justify-content: center; }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 1rem; }
+        button { flex: 1; padding: 12px; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: bold; transition: 0.3s; color: white; }
+        .btn-gen { background-color: var(--primary); }
+        .btn-scan { background-color: #10b981; }
+        button:hover { opacity: 0.9; }
+        #uploadProgress { width: 100%; height: 8px; margin-bottom: 1rem; border-radius: 4px; overflow: hidden; display: none; }
+        #qrcode, #scanResult { margin-top: 2rem; display: flex; justify-content: center; }
+        #scanResult { word-break: break-all; padding: 10px; border: 1px solid #334155; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -32,12 +37,21 @@
         <input type="text" id="content" placeholder="Enter content...">
     </div>
 
-    <label style="display:block; margin-bottom: 5px;">QR Color:</label>
+    <progress id="uploadProgress" value="0" max="100"></progress>
+
+    <label style="display:block; margin-bottom: 5px; text-align: left;">QR Color:</label>
     <input type="color" id="colorPicker" value="#ffffff" style="height: 40px; cursor: pointer;">
 
-    <button onclick="generateQR()">Generate QR</button>
+    <div class="btn-group">
+        <button class="btn-gen" onclick="generateQR()">Generate</button>
+        <button class="btn-scan" onclick="triggerScan()">Scan QR</button>
+    </div>
+    
     <div id="qrcode"></div>
+    <div id="scanResult" style="display:none;"></div>
 </div>
+
+<input type="file" id="scanInput" style="display:none;" accept="image/*" onchange="scanImage(event)">
 
 <script>
     function toggleInput() {
@@ -68,29 +82,71 @@
 
     function generateQR() {
         const qrcodeDiv = document.getElementById('qrcode');
+        const progressBar = document.getElementById('uploadProgress');
         const color = document.getElementById('colorPicker').value;
+        
         let data = "";
-
         const fileInput = document.getElementById('fileInput');
+
         if (fileInput && fileInput.files.length > 0) {
-            data = URL.createObjectURL(fileInput.files[0]);
+            progressBar.style.display = "block";
+            progressBar.value = 0;
+            // Simulate Upload
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 20;
+                progressBar.value = progress;
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    data = URL.createObjectURL(fileInput.files[0]);
+                    renderQR(data, color);
+                    progressBar.style.display = "none";
+                }
+            }, 200);
         } else {
             data = document.getElementById('content').value;
+            if(!data) return alert("Please enter content.");
+            renderQR(data, color);
         }
+    }
 
-        qrcodeDiv.innerHTML = "";
-        if (data) {
-            new QRCode(qrcodeDiv, {
-                text: data,
-                width: 256,
-                height: 256,
-                colorDark : color,
-                colorLight : "#0f172a",
-                correctLevel : QRCode.CorrectLevel.H
-            });
-        } else {
-            alert("Please enter content or select a file.");
-        }
+    function renderQR(data, color) {
+        document.getElementById('scanResult').style.display = "none";
+        document.getElementById('qrcode').innerHTML = "";
+        new QRCode(document.getElementById('qrcode'), {
+            text: data,
+            width: 256,
+            height: 256,
+            colorDark : color,
+            colorLight : "#0f172a",
+            correctLevel : QRCode.CorrectLevel.H
+        });
+    }
+
+    function triggerScan() {
+        document.getElementById('scanInput').click();
+    }
+
+    function scanImage(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const html5QrCode = new Html5Qrcode("scanResult");
+        const reader = new FileReader();
+        
+        reader.onload = e => {
+            document.getElementById('scanResult').style.display = "block";
+            document.getElementById('scanResult').innerText = "Scanning...";
+            
+            html5QrCode.scanFile(file, true)
+                .then(decodedText => {
+                    document.getElementById('scanResult').innerText = "Data: " + decodedText;
+                })
+                .catch(err => {
+                    document.getElementById('scanResult').innerText = "Error: Could not decode QR code.";
+                });
+        };
+        reader.readAsDataURL(file);
     }
 </script>
 
