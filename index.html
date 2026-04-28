@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { --primary: #6366f1; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
         .container { background-color: var(--card); padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 100%; max-width: 400px; text-align: center; }
         h1 { margin-bottom: 1.5rem; color: var(--primary); }
         select, input { width: 100%; padding: 12px; margin-bottom: 1rem; border-radius: 0.5rem; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; }
@@ -16,11 +16,9 @@
         button { flex: 1; padding: 12px; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: bold; transition: 0.3s; color: white; }
         .btn-gen { background-color: var(--primary); }
         .btn-scan { background-color: #10b981; }
-        button:hover { opacity: 0.9; }
-        #uploadProgress { width: 100%; height: 8px; margin-bottom: 1rem; border-radius: 4px; overflow: hidden; display: none; }
+        #reader { width: 100%; border-radius: 0.5rem; overflow: hidden; margin-top: 1rem; }
+        #scanResult { margin-top: 1rem; padding: 10px; border: 1px solid #334155; border-radius: 5px; word-break: break-all; display: none; background: #0f172a; }
         #qrcode { margin-top: 2rem; display: flex; justify-content: center; }
-        #reader { width: 100%; margin-top: 1rem; }
-        #scanResult { margin-top: 1rem; padding: 10px; border: 1px solid #334155; border-radius: 5px; word-break: break-all; display: none; }
     </style>
 </head>
 <body>
@@ -38,8 +36,6 @@
         <input type="text" id="content" placeholder="Enter content...">
     </div>
 
-    <progress id="uploadProgress" value="0" max="100"></progress>
-
     <label style="display:block; margin-bottom: 5px; text-align: left;">QR Color:</label>
     <input type="color" id="colorPicker" value="#ffffff" style="height: 40px; cursor: pointer;">
 
@@ -54,7 +50,6 @@
 </div>
 
 <script>
-    // Camera logic
     let html5QrCode;
 
     function toggleInput() {
@@ -83,67 +78,47 @@
         }
     }
 
-    function startCameraScan() {
+    async function startCameraScan() {
         document.getElementById('scanResult').style.display = "none";
         document.getElementById('qrcode').innerHTML = "";
         
+        // Stoppe vorherigen Scan, falls aktiv
+        if (html5QrCode) {
+            try { await html5QrCode.stop(); } catch(e) {}
+        }
+
         html5QrCode = new Html5Qrcode("reader");
+        
+        // Verbesserte Konfiguration
+        const config = { fps: 15, qrbox: { width: 250, height: 250 } };
+        
         html5QrCode.start(
-            { facingMode: "environment" }, // Use back camera
-            { fps: 10, qrbox: 250 },
-            qrCodeMessage => {
+            { facingMode: "environment" }, 
+            config,
+            (decodedText) => {
                 document.getElementById('scanResult').style.display = "block";
-                document.getElementById('scanResult').innerText = "Scanned Data: " + qrCodeMessage;
-                html5QrCode.stop().then(ignore => {
-                    // Camera stopped
-                }).catch(err => {
-                    // Stop failed
-                });
+                document.getElementById('scanResult').innerText = "Result: " + decodedText;
+                html5QrCode.stop();
             },
-            errorMessage => {
-                // Scanning (ignore logs)
+            (errorMessage) => {
+                // Scanning (keine logs hier, um das UI sauber zu halten)
             }
         ).catch(err => {
-            alert("Camera access denied or not available.");
+            alert("Fehler: Kamera konnte nicht gestartet werden. Bitte erlaube den Zugriff.");
         });
     }
 
     function generateQR() {
-        const qrcodeDiv = document.getElementById('qrcode');
-        const progressBar = document.getElementById('uploadProgress');
-        const color = document.getElementById('colorPicker').value;
-        
-        // Stop scanner if running
         if(html5QrCode && html5QrCode.isScanning) html5QrCode.stop();
+        
+        const qrcodeDiv = document.getElementById('qrcode');
+        const color = document.getElementById('colorPicker').value;
+        const data = document.getElementById('content').value;
 
-        let data = "";
-        const fileInput = document.getElementById('fileInput');
-
-        if (fileInput && fileInput.files.length > 0) {
-            progressBar.style.display = "block";
-            progressBar.value = 0;
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += 20;
-                progressBar.value = progress;
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    data = URL.createObjectURL(fileInput.files[0]);
-                    renderQR(data, color);
-                    progressBar.style.display = "none";
-                }
-            }, 200);
-        } else {
-            data = document.getElementById('content').value;
-            if(!data) return alert("Please enter content.");
-            renderQR(data, color);
-        }
-    }
-
-    function renderQR(data, color) {
-        document.getElementById('scanResult').style.display = "none";
-        document.getElementById('qrcode').innerHTML = "";
-        new QRCode(document.getElementById('qrcode'), {
+        if(!data) return alert("Please enter content.");
+        
+        qrcodeDiv.innerHTML = "";
+        new QRCode(qrcodeDiv, {
             text: data,
             width: 256,
             height: 256,
